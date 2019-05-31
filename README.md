@@ -7,7 +7,7 @@ transmission-cli
 feedparser, tldextract, transmissionrpc
 # Requirements when using read_manga.py
 ## System
-sxiv
+rofi, sxiv
 # Important
 Do not move files inside the download directory. If you want to move them, move the whole download directory
 when automedia is not running and then set the download directory to the new location when using sync command.

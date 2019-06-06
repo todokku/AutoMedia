@@ -1,5 +1,6 @@
 # TODO
-Periodically check and remove in_progress files and their directories. This can happen if the computer crashes while adding rss.
+1. Periodically check and remove in_progress files and their directories. This can happen if the computer crashes while adding rss.
+2. Automatically remove torrents that have finished seeding, to reduce memory usage and startup time of transmission.
 # Requirements
 ## System
 transmission-cli

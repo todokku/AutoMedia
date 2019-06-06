@@ -79,7 +79,8 @@ def download_chapter(url, download_dir):
         image_name = str(img_number) + ext
         image_path = os.path.join(download_dir, image_name)
         print("Downloading {} to {}".format(image_source, image_path))
-        download_file(image_source, image_path)
+        if not download_file(image_source, image_path):
+            exit(1)
 
         next_pages = tree.xpath('//div[@class="page"]//a/@href')
         if len(next_pages) != 1:

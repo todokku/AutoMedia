@@ -73,7 +73,8 @@ def download_chapter(url, download_dir):
         image_name = str(img_number) + ext
         image_path = os.path.join(download_dir, image_name)
         print("Downloading {} to {}".format(image_source, image_path))
-        download_file(image_source, image_path)
+        if not download_file(image_source, image_path):
+            exit(1)
         img_number += 1
 
     with open(os.path.join(download_dir, "finished"), "w") as file:

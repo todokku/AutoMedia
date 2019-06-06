@@ -327,14 +327,12 @@ def resume_tracked_html(plugin_entry, download_dir, tracked_html, session_id):
                     item_session_id = file.read()
                     if item_session_id != session_id:
                         invalid_session = True
-                        plugin_download(plugin_entry, url, item_dir)
-                        show_notification("Resuming", "Resuming download for item {} with plugin {}".format(item, tracked_html.plugin))
             except FileNotFoundError as e:
                 invalid_session = True
-                plugin_download(plugin_entry, url, item_dir)
-                show_notification("Resuming", "Resuming download for item {} with plugin {}".format(item, tracked_html.plugin))
             
             if invalid_session:
+                plugin_download(plugin_entry, url, item_dir)
+                show_notification("Resuming", "Resuming download for item {} with plugin {}".format(item, tracked_html.plugin))
                 with open(os.path.join(item_dir, "session_id"), "w") as file:
                     file.write(session_id)
     except FileNotFoundError as e:
@@ -377,9 +375,6 @@ def sync_html(tracked_html, download_dir, session_id):
     # A file called "finished" should be added to the download directory when the download has finished.
     # ./program download url download_dir
     latest = None
-    if len(items["items"]) > 0:
-        latest = items["items"][0]["name"].replace("/", "_")
-
     for item in reversed(items["items"]):
         url = item["url"]
         name = item["name"].replace("/", "_")

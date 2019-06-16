@@ -287,7 +287,7 @@ def sync_rss(tracked_rss):
         if not add_torrent(link):
             return latest
         latest = item["title"].strip()
-        show_notification("Download started", "Started downloading torrent {}".format(latest))
+        show_notification("Download started", latest)
     return latest
 
 def plugin_list(plugin_path, url, latest):
@@ -394,7 +394,7 @@ def sync_html(tracked_html, download_dir, session_id):
             return latest
 
         latest = name
-        show_notification("Download started", "Started downloading item {} with plugin {}".format(tracked_html.title + "/" + name, tracked_html.plugin))
+        show_notification("Download started", "{}/{}".format(tracked_html.title + "/" + name))
     return latest
 
 def sync(rss_config_dir, html_config_dir, download_dir, sync_rate_sec):
@@ -444,7 +444,7 @@ def sync(rss_config_dir, html_config_dir, download_dir, sync_rate_sec):
             finished_html_items = [html_item for html_item in html_items if html_item.finished]
             newly_finished_html_items = get_matching_html_items_by_name(finished_html_items, unfinished_html_items)
             for newly_finished_html_item in newly_finished_html_items:
-                show_notification("Download finished", "Finished downloading {}".format(newly_finished_html_item))
+                show_notification("Download finished", newly_finished_html_item)
                 update_downloaded_item_list(newly_finished_html_item)
             unfinished_html_items = [html_item for html_item in html_items if not html_item.finished]
 
@@ -452,7 +452,7 @@ def sync(rss_config_dir, html_config_dir, download_dir, sync_rate_sec):
             finished_torrents = get_finished_torrents(torrents)
             newly_finished_torrents = get_matching_torrents_by_name(finished_torrents, unfinished_torrents)
             for newly_finished_torrent in newly_finished_torrents:
-                show_notification("Download finished", "Finished downloading {}".format(newly_finished_torrent))
+                show_notification("Download finished", newly_finished_torrent)
                 update_downloaded_item_list(newly_finished_torrent)
             unfinished_torrents = get_unfinished_torrents(torrents)
 

@@ -16,6 +16,8 @@ from lxml import etree
 
 script_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
 
+config_dir = os.path.expanduser("~/.config/automedia")
+
 class TrackedRss:
     title = None
     latest = None
@@ -191,10 +193,14 @@ def get_matching_html_items_by_name(html_items1, html_items2):
                 matching_items.append(html_item1.name)
     return matching_items
 
-def add_rss(url, config_dir, start_after):
+def update_downloaded_item_list(downloaded_item):
+    with open(os.path.join(config_dir, "downloaded"), "a") as file:
+        file.write("{}\n".format(downloaded_item))
+
+def add_rss(url, rss_config_dir, start_after):
     feed = feedparser.parse(url)
     rss_name = feed["channel"]["title"].strip().replace("/", "_")
-    rss_dir = os.path.join(config_dir, "tracked", rss_name)
+    rss_dir = os.path.join(rss_config_dir, "tracked", rss_name)
     os.makedirs(rss_dir)
 
     found_start_after = False
@@ -226,7 +232,7 @@ def add_rss(url, config_dir, start_after):
     os.remove(in_progress_filepath)
     return True
 
-def add_html(name, url, config_dir, start_after):
+def add_html(name, url, html_config_dir, start_after):
     domain = tldextract.extract(url).domain
     domain_plugin_file_exists = os.path.isfile(os.path.join(script_dir, "plugins", domain))
     domain_plugin_file_py_exists = os.path.isfile(os.path.join(script_dir, "plugins", domain + ".py"))
@@ -235,7 +241,7 @@ def add_html(name, url, config_dir, start_after):
         exit(2)
 
     name = name.replace("/", "_")
-    html_dir = os.path.join(config_dir, "tracked", name)
+    html_dir = os.path.join(html_config_dir, "tracked", name)
     os.makedirs(html_dir)
 
     # Create an "in_progress" file to prevent periodic sync from reading rss data
@@ -439,6 +445,7 @@ def sync(rss_config_dir, html_config_dir, download_dir, sync_rate_sec):
             newly_finished_html_items = get_matching_html_items_by_name(finished_html_items, unfinished_html_items)
             for newly_finished_html_item in newly_finished_html_items:
                 show_notification("Download finished", "Finished downloading {}".format(newly_finished_html_item))
+                update_downloaded_item_list(newly_finished_html_item)
             unfinished_html_items = [html_item for html_item in html_items if not html_item.finished]
 
             torrents = get_torrent_progress(tc)
@@ -446,6 +453,7 @@ def sync(rss_config_dir, html_config_dir, download_dir, sync_rate_sec):
             newly_finished_torrents = get_matching_torrents_by_name(finished_torrents, unfinished_torrents)
             for newly_finished_torrent in newly_finished_torrents:
                 show_notification("Download finished", "Finished downloading {}".format(newly_finished_torrent))
+                update_downloaded_item_list(newly_finished_torrent)
             unfinished_torrents = get_unfinished_torrents(torrents)
 
             time.sleep(check_torrent_status_rate_sec)
@@ -464,6 +472,9 @@ def main():
     parser.add_argument("-n", "--name", required=False)
     args = parser.parse_args()
 
+    rss_config_dir = os.path.join(config_dir, "rss")
+    html_config_dir = os.path.join(config_dir, "html")
+
     if args.add:
         if not args.url:
             print("-u/--url argument is required when using 'add' command")
@@ -472,9 +483,8 @@ def main():
             print("-t/--type argument is required when using 'add' command")
             exit(1)
         if args.type == "rss":
-            config_dir = os.path.expanduser("~/.config/automedia/rss")
-            os.makedirs(config_dir, exist_ok=True)
-            result = add_rss(args.url, config_dir, args.start_after)
+            os.makedirs(rss_config_dir, exist_ok=True)
+            result = add_rss(args.url, rss_config_dir, args.start_after)
             if not result:
                 exit(1)
         elif args.type == "html":
@@ -482,9 +492,8 @@ def main():
                 print("-n/--name argument is required when using '--add --type html' command")
                 exit(1)
 
-            config_dir = os.path.expanduser("~/.config/automedia/html")
-            os.makedirs(config_dir, exist_ok=True)
-            result = add_html(args.name, args.url, config_dir, args.start_after)
+            os.makedirs(html_config_dir, exist_ok=True)
+            result = add_html(args.name, args.url, html_config_dir, args.start_after)
             if not result:
                 exit(1)
     elif args.sync:
@@ -492,10 +501,7 @@ def main():
             print("-d/--download-dir argument is required when using 'sync' command")
             exit(1)
 
-        rss_config_dir = os.path.expanduser("~/.config/automedia/rss")
         os.makedirs(rss_config_dir, exist_ok=True)
-
-        html_config_dir = os.path.expanduser("~/.config/automedia/html")
         os.makedirs(html_config_dir, exist_ok=True)
 
         sync_rate_sec = 15 * 60 # every 15 min

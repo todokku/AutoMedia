@@ -394,7 +394,7 @@ def sync_html(tracked_html, download_dir, session_id):
             return latest
 
         latest = name
-        show_notification("Download started", "{}/{}".format(tracked_html.title + "/" + name))
+        show_notification("Download started", "{}/{}".format(tracked_html.title, name))
     return latest
 
 def sync(rss_config_dir, html_config_dir, download_dir, sync_rate_sec):

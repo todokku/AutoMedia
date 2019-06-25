@@ -13,6 +13,7 @@ import tldextract
 import transmissionrpc
 
 from lxml import etree
+from datetime import datetime
 
 script_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
 
@@ -199,6 +200,10 @@ def update_downloaded_item_list(downloaded_item):
 
 def add_rss(url, rss_config_dir, start_after):
     feed = feedparser.parse(url)
+    if 'bozo_exception' in feed:
+        print("Failed to add rss, error: {}".format(str(feed.bozo_exception)))
+        return False
+        
     rss_name = feed["channel"]["title"].strip().replace("/", "_")
     rss_dir = os.path.join(rss_config_dir, "tracked", rss_name)
     os.makedirs(rss_dir)
@@ -272,6 +277,11 @@ def add_html(name, url, html_config_dir, start_after):
 # Return the title of the newest item
 def sync_rss(tracked_rss):
     feed = feedparser.parse(tracked_rss.link)
+    if 'bozo_exception' in feed:
+        print("{}: Failed to add rss, error: {}".format(str(datetime.today().isoformat()), str(feed.bozo_exception)))
+        show_notification("RSS Sync failed", "Failed to parse rss for url {}, error: {}".format(tracked_rss.link, str(feed.bozo_exception)))
+        return None
+
     items = []
     for item in feed["items"]:
         title = item["title"].strip()
@@ -297,7 +307,8 @@ def plugin_list(plugin_path, url, latest):
     stdout, stderr = process.communicate()
     if process.returncode != 0:
         plugin_name = os.path.basename(plugin_path)
-        show_notification("Plugin failed", "Failed to launch plugin list for plugin {}, error: {}".format(plugin_name, stderr.decode('utf-8')), urgency="critical")
+        print("{}: Plugin failed: Failed to launch plugin list for plugin {}, error: stdout: {}, stderr: {}".format(str(datetime.today().isoformat()), plugin_name, stdout.decode('utf-8'), stderr.decode('utf-8')))
+        show_notification("Plugin failed", "Failed to launch plugin list for plugin {}, error: stdout: {}, stderr: {}".format(plugin_name, stdout.decode('utf-8'), stderr.decode('utf-8')), urgency="critical")
         return None
 
     try:
@@ -421,6 +432,7 @@ def sync(rss_config_dir, html_config_dir, download_dir, sync_rate_sec):
     while running:
         tracked_rss = get_tracked_rss(rss_tracked_dir)
         for rss in tracked_rss:
+            print("{}: rss: Syncing {}".format(str(datetime.today().isoformat()), rss.title))
             latest = sync_rss(rss)
             if latest:
                 rss_update_latest(rss_tracked_dir, rss, latest)
@@ -430,6 +442,7 @@ def sync(rss_config_dir, html_config_dir, download_dir, sync_rate_sec):
 
         tracked_html = get_tracked_html(html_tracked_dir)
         for html in tracked_html:
+            print("{}: html({}): Syncing {}".format(str(datetime.today().isoformat()), html.plugin, html.title))
             latest = sync_html(html, download_dir, session_id)
             if latest:
                 html_update_latest(html_tracked_dir, html, latest)

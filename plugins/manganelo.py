@@ -51,9 +51,10 @@ def list_chapters(url, latest):
     tree = etree.HTML(response.text)
     chapters = []
     for element in tree.xpath('//div[@class="chapter-list"]//a'):
-        if latest and element.text == latest:
+        element_text = element.text.strip()
+        if latest and element_text == latest:
             break
-        chapters.append({ "name": element.text.strip(), "url": element.attrib.get("href").strip() })
+        chapters.append({ "name": element_text, "url": element.attrib.get("href").strip() })
     print(json.dumps({ "items": chapters }))
 
 def download_chapter(url, download_dir):

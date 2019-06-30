@@ -6,9 +6,10 @@ import re
 import subprocess
 
 def usage():
-    print("read_manga.py manga_directory [start_at_chapter]")
+    print("read_manga.py manga_directory [start_at_chapter] [--list-reverse]")
     print("examples:")
     print("  read_manga.py /home/adam/Manga/Naruto \"Chapter 10\"")
+    print("  read_manga.py /home/adam/Manga/Naruto --list-reverse")
     exit(1)
 
 if len(sys.argv) < 2:
@@ -35,7 +36,19 @@ chapters = []
 for chapter in os.listdir(manga_directory):
     chapters.append(chapter)
 
-chapters_by_oldest = sorted(chapters, key=chapter_sort_func)
+chapters_by_oldest = []
+try:
+    chapters_by_oldest = sorted(chapters, key=chapter_sort_func)
+except Exception as e:
+    print("Failed to sord chapters using custom sorting method, using default sorting method. Reason for failure: %s" % str(e), file=sys.stderr)
+    chapters_by_oldest = sorted(chapters)
+
+for argv in sys.argv:
+    if argv == "--list-reverse":
+        chapters_by_oldest.reverse()
+        print("\n".join(chapters_by_oldest))
+        exit(0)
+
 start_index = 0
 if start_at_chapter:
     found_chapter = False
@@ -48,15 +61,10 @@ if start_at_chapter:
         index += 1
     
     if not found_chapter:
-        print("Failed to find chapter %s in list of chapters: %s" % (start_at_chapter, str(chapters_by_oldest)))
+        print("Failed to find chapter %s in list of chapters: %s" % (start_at_chapter, str(chapters_by_oldest)), file=sys.stderr)
 
-index = 0
 images_str = []
-for chapter in chapters_by_oldest:
-    if index < start_index:
-        index += 1
-        continue
-
+for chapter in chapters_by_oldest[start_index:]:
     images = []
     image_dir = os.path.join(manga_directory, chapter)
     for image in os.listdir(image_dir):

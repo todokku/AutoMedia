@@ -279,7 +279,7 @@ def sync_rss(tracked_rss):
     feed = feedparser.parse(tracked_rss.link)
     if 'bozo_exception' in feed:
         print("{}: Failed to add rss, error: {}".format(str(datetime.today().isoformat()), str(feed.bozo_exception)))
-        show_notification("RSS Sync failed", "Failed to parse rss for url {}, error: {}".format(tracked_rss.link, str(feed.bozo_exception)))
+        show_notification("RSS Sync failed", "Failed to parse rss for url {}, error: {}".format(tracked_rss.link, str(feed.bozo_exception)), urgency="critical")
         return None
 
     items = []
@@ -307,8 +307,8 @@ def plugin_list(plugin_path, url, latest):
     stdout, stderr = process.communicate()
     if process.returncode != 0:
         plugin_name = os.path.basename(plugin_path)
-        print("{}: Plugin failed: Failed to launch plugin list for plugin {}, error: stdout: {}, stderr: {}".format(str(datetime.today().isoformat()), plugin_name, stdout.decode('utf-8'), stderr.decode('utf-8')))
-        show_notification("Plugin failed", "Failed to launch plugin list for plugin {}, error: stdout: {}, stderr: {}".format(plugin_name, stdout.decode('utf-8'), stderr.decode('utf-8')), urgency="critical")
+        print("{}: Plugin failed: Failed to launch plugin list for plugin {} and url {}, error: stdout: {}, stderr: {}".format(str(datetime.today().isoformat()), plugin_name, url, stdout.decode('utf-8'), stderr.decode('utf-8')))
+        show_notification("Plugin failed", "Failed to launch plugin list for plugin {} and url {}, error: stdout: {}, stderr: {}".format(plugin_name, url, stdout.decode('utf-8'), stderr.decode('utf-8')), urgency="critical")
         return None
 
     try:

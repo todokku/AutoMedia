@@ -2,7 +2,6 @@
 
 import feedparser
 import subprocess
-import argparse
 import os
 import sys
 import time
@@ -18,6 +17,8 @@ from datetime import datetime
 script_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
 
 config_dir = os.path.expanduser("~/.config/automedia")
+rss_config_dir = os.path.join(config_dir, "rss")
+html_config_dir = os.path.join(config_dir, "html")
 
 class TrackedRss:
     title = None
@@ -198,14 +199,16 @@ def update_downloaded_item_list(downloaded_item):
     with open(os.path.join(config_dir, "downloaded"), "a") as file:
         file.write("{}\n".format(downloaded_item))
 
-def add_rss(url, rss_config_dir, start_after):
+def add_rss(name, url, rss_config_dir, start_after):
     feed = feedparser.parse(url)
     if 'bozo_exception' in feed:
         print("Failed to add rss, error: {}".format(str(feed.bozo_exception)))
         return False
         
-    rss_name = feed["channel"]["title"].strip().replace("/", "_")
-    rss_dir = os.path.join(rss_config_dir, "tracked", rss_name)
+    if not name:
+        name = feed["channel"]["title"].strip()
+    name = name.replace("/", "_")
+    rss_dir = os.path.join(rss_config_dir, "tracked", name)
     os.makedirs(rss_dir)
 
     found_start_after = False
@@ -472,54 +475,103 @@ def sync(rss_config_dir, html_config_dir, download_dir, sync_rate_sec):
             time.sleep(check_torrent_status_rate_sec)
             count += 1
 
-def main():
-    parser = argparse.ArgumentParser(description="Automatic download of media (rss feed, tracking html)")
-    action_group = parser.add_mutually_exclusive_group(required=True)
-    action_group.add_argument("-a", "--add", action="store_true")
-    action_group.add_argument("-s", "--sync", action="store_true")
+def usage():
+    print("usage: automedia.py COMMAND")
+    print("")
+    print("COMMANDS")
+    print("  add\tAdd media to track")
+    print("  sync\tStart syncing tracked media")
+    exit(1)
 
-    parser.add_argument("-t", "--type", choices=["rss", "html"], required=False)
-    parser.add_argument("-u", "--url", required=False)
-    parser.add_argument("--start-after", required=False)
-    parser.add_argument("-d", "--download-dir", required=False)
-    parser.add_argument("-n", "--name", required=False)
-    args = parser.parse_args()
+def usage_add():
+    print("usage: automedia.py add <type> <url> [--name name] [--start-after start_after]")
+    print("OPTIONS")
+    print("  type\t\tThe type should be either rss or html")
+    print("  url\t\tThe url to the rss or html")
+    print("  --name\t\tThe display name to be used for the media. Optional for rss, in which case the name will be retries from rss TITLE, required for html")
+    print("  --start-after\t\tThe sync should start downloading media after this item (Optional, default is to start from the first item)")
+    print("EXAMPLES")
+    print("  automedia.py add https://nyaa.si/?page=rss&q=Tejina-senpai+1080p&c=0_0&f=0&u=HorribleSubs")
+    print("  automedia.py add html https://manganelo.com/manga/read_naruto_manga_online_free3 --name Naruto")
+    exit(1)
 
-    rss_config_dir = os.path.join(config_dir, "rss")
-    html_config_dir = os.path.join(config_dir, "html")
+def usage_sync():
+    print("usage: automedia.py sync <download_dir>")
+    print("OPTIONS")
+    print("  download_dir\tThe path where media should be downloaded to")
+    print("EXAMPLES")
+    print("  automedia.py sync /home/adam/Downloads/automedia")
+    exit(1)
 
-    if args.add:
-        if not args.url:
-            print("-u/--url argument is required when using 'add' command")
-            exit(1)
-        if not args.type:
-            print("-t/--type argument is required when using 'add' command")
-            exit(1)
-        if args.type == "rss":
-            os.makedirs(rss_config_dir, exist_ok=True)
-            result = add_rss(args.url, rss_config_dir, args.start_after)
-            if not result:
-                exit(1)
-        elif args.type == "html":
-            if not args.name:
-                print("-n/--name argument is required when using '--add --type html' command")
-                exit(1)
+def command_add(args):
+    if len(args) < 2:
+        usage_add()
 
-            os.makedirs(html_config_dir, exist_ok=True)
-            result = add_html(args.name, args.url, html_config_dir, args.start_after)
-            if not result:
-                exit(1)
-    elif args.sync:
-        if not args.download_dir:
-            print("-d/--download-dir argument is required when using 'sync' command")
-            exit(1)
+    media_type = args[0]
+    media_url = args[1]
+    media_name = None
+    start_after = None
 
+    option = None
+    for arg in args[2:]:
+        if arg in [ "--name", "--start-after"]:
+            if option:
+                usage_add()
+            option = arg
+        else:
+            if not option:
+                usage_add()
+
+            if option == "--name":
+                media_name = arg
+            elif option == "--start-after":
+                start_after = arg
+            else:
+                usage_add()
+
+    if media_type == "rss":
         os.makedirs(rss_config_dir, exist_ok=True)
-        os.makedirs(html_config_dir, exist_ok=True)
+        result = add_rss(media_name, media_url, rss_config_dir, start_after)
+        if not result:
+            exit(2)
+    elif media_type == "html":
+        if not media_name:
+            print("missing --name for media of type 'html'")
+            usage_add()
 
-        sync_rate_sec = 15 * 60 # every 15 min
-        sync(rss_config_dir, html_config_dir, args.download_dir, sync_rate_sec)
-        pass
+        os.makedirs(html_config_dir, exist_ok=True)
+        result = add_html(media_name, media_url, html_config_dir, start_after)
+        if not result:
+            exit(2)
+    else:
+        print("type should be either rss or html")
+        usage_add()
+
+def command_sync(args):
+    if len(args) < 1:
+        usage_sync()
+
+    download_dir = args[0]
+    if not download_dir:
+        usage_sync()
+
+    os.makedirs(rss_config_dir, exist_ok=True)
+    os.makedirs(html_config_dir, exist_ok=True)
+
+    sync_rate_sec = 15 * 60 # every 15 min
+    sync(rss_config_dir, html_config_dir, download_dir, sync_rate_sec)
+
+def main():
+    if len(sys.argv) < 2:
+        usage()
+
+    command = sys.argv[1]
+    if command == "add":
+        command_add(sys.argv[2:])
+    elif command == "sync":
+        command_sync(sys.argv[2:])
+    else:
+        usage()
 
 if __name__ == "__main__":
     main()

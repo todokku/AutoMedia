@@ -207,9 +207,6 @@ def add_rss(name, url, rss_config_dir, start_after):
         
     if not name:
         name = feed["channel"]["title"].strip()
-    name = name.replace("/", "_")
-    rss_dir = os.path.join(rss_config_dir, "tracked", name)
-    os.makedirs(rss_dir)
 
     found_start_after = False
     for item in feed["items"]:
@@ -221,6 +218,10 @@ def add_rss(name, url, rss_config_dir, start_after):
     if start_after and not found_start_after:
         print("Failed to find %s in rss %s" % (start_after, url))
         return False
+
+    name = name.replace("/", "_")
+    rss_dir = os.path.join(rss_config_dir, "tracked", name)
+    os.makedirs(rss_dir)
 
     # Create an "in_progress" file to prevent periodic sync from reading rss data
     # before we have finished adding all the data.
@@ -242,11 +243,31 @@ def add_rss(name, url, rss_config_dir, start_after):
 
 def add_html(name, url, html_config_dir, start_after):
     domain = tldextract.extract(url).domain
-    domain_plugin_file_exists = os.path.isfile(os.path.join(script_dir, "plugins", domain))
-    domain_plugin_file_py_exists = os.path.isfile(os.path.join(script_dir, "plugins", domain + ".py"))
-    if not domain_plugin_file_exists and not domain_plugin_file_py_exists:
+    domain_plugin_path = os.path.join(script_dir, "plugins", domain)
+    domain_plugin_py_path = os.path.join(script_dir, "plugins", domain + ".py")
+
+    plugin_path = None
+    if os.path.isfile(domain_plugin_path):
+        plugin_path = domain_plugin_path
+    elif os.path.isfile(domain_plugin_py_path):
+        plugin_path = domain_plugin_py_path
+    else:
         print("Plugin doesn't exist: {}".format(domain))
-        exit(2)
+        return false
+ 
+    if start_after:
+        items = plugin_list(plugin_path, url, None)
+        if items:
+            found_start_after = False
+            for item in reversed(items["items"]):
+                title = item["name"].strip()
+                if start_after and title == start_after:
+                    found_start_after = True
+                    break
+            
+            if not found_start_after:
+                print("Failed to find %s in html %s" % (start_after, url))
+                return false
 
     name = name.replace("/", "_")
     html_dir = os.path.join(html_config_dir, "tracked", name)
@@ -264,10 +285,7 @@ def add_html(name, url, html_config_dir, start_after):
         file.write(url)
 
     with open(os.path.join(html_dir, "plugin"), "w") as file:
-        if domain_plugin_file_exists:
-            file.write(domain)
-        elif domain_plugin_file_py_exists:
-            file.write(domain + ".py")
+        file.write(os.path.basename(plugin_path))
     
     if start_after:
         with open(os.path.join(html_dir, "latest"), "w") as file:

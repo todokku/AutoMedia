@@ -529,6 +529,9 @@ def command_add(args):
             else:
                 usage_add()
 
+    if start_after:
+        start_after = start_after.strip()
+
     if media_type == "rss":
         os.makedirs(rss_config_dir, exist_ok=True)
         result = add_rss(media_name, media_url, rss_config_dir, start_after)

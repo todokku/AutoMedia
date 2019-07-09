@@ -43,10 +43,12 @@ class TrackedHtml:
         self.plugin = plugin
 
 class TorrentProgress:
+    id = None
     name = None
     progress = None
 
-    def __init__(self, name, progress):
+    def __init__(self, id, name, progress):
+        self.id = id
         self.name = name
         self.progress = progress
 
@@ -150,7 +152,7 @@ def add_torrent(torrent_link):
 def get_torrent_progress(tc):
     torrent_progress = []
     for torrent in tc.get_torrents():
-        torrent_progress.append(TorrentProgress(torrent.name, torrent.progress))
+        torrent_progress.append(TorrentProgress(torrent.id, torrent.name, torrent.progress))
     return torrent_progress
 
 def get_finished_torrents(torrents):
@@ -171,7 +173,7 @@ def get_matching_torrents_by_name(torrents1, torrents2):
     matching_torrents = []
     for torrent1 in torrents1:
         for torrent2 in torrents2:
-            if torrent1.name == torrent2.name:
+            if torrent1.id == torrent2.id:
                 matching_torrents.append(torrent1.name)
     return matching_torrents
 

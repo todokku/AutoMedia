@@ -1,6 +1,9 @@
 # AutoMedia
 Automatically track new released of media and download them. Currently works with rss for torrent sites (nyaa.si) and a few manga websites (see plugins directory).
 When a download finished, a notification is shown on the screen (if notify-send is installed).
+## Usage
+Run automedia with `sync` option and keep it running to track media. You can then use `add` option to add new media to track.
+Run automedia without any options to see all options.
 ## TODO
 1. Periodically check and remove in_progress files and their directories. This can happen if the computer crashes while adding rss.
 2. Automatically remove torrents that have finished seeding, to reduce memory usage and startup time of transmission.

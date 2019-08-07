@@ -89,9 +89,15 @@ def rss_update_latest(rss_tracked_dir, rss, latest):
     with open(os.path.join(rss_tracked_dir, rss.title, "latest"), "w") as file:
         file.write(latest)
 
+    with open(os.path.join(rss_tracked_dir, rss.title, "updated"), "w") as file:
+        file.write(str(time.time()))
+
 def html_update_latest(html_tracked_dir, html, latest):
     with open(os.path.join(html_tracked_dir, html.title, "latest"), "w") as file:
         file.write(latest)
+
+    with open(os.path.join(html_tracked_dir, html.title, "updated"), "w") as file:
+        file.write(str(time.time()))
 
 def get_tracked_html(html_tracked_dir):
     try:
@@ -239,6 +245,9 @@ def add_rss(name, url, rss_config_dir, start_after):
     if start_after:
         with open(os.path.join(rss_dir, "latest"), "w") as file:
             file.write(start_after)
+
+    with open(os.path.join(rss_dir, "updated"), "w") as file:
+        file.write(str(time.time()))
     
     os.remove(in_progress_filepath)
     return True
@@ -255,7 +264,7 @@ def add_html(name, url, html_config_dir, start_after):
         plugin_path = domain_plugin_py_path
     else:
         print("Plugin doesn't exist: {}".format(domain))
-        return false
+        return False
  
     if start_after:
         items = plugin_list(plugin_path, url, None)
@@ -269,7 +278,7 @@ def add_html(name, url, html_config_dir, start_after):
             
             if not found_start_after:
                 print("Failed to find %s in html %s" % (start_after, url))
-                return false
+                return False
 
     name = name.replace("/", "_")
     html_dir = os.path.join(html_config_dir, "tracked", name)
@@ -292,6 +301,9 @@ def add_html(name, url, html_config_dir, start_after):
     if start_after:
         with open(os.path.join(html_dir, "latest"), "w") as file:
             file.write(start_after)
+
+    with open(os.path.join(html_dir, "updated"), "w") as file:
+        file.write(str(time.time()))
     
     os.remove(in_progress_filepath)
     return True
@@ -547,7 +559,9 @@ def command_add(args):
             elif option == "--start-after":
                 start_after = arg
             else:
+                print("Invalid option %" % option)
                 usage_add()
+            option = None
 
     if start_after:
         start_after = start_after.strip()

@@ -471,6 +471,10 @@ def sync(rss_config_dir, html_config_dir, download_dir, sync_rate_sec):
             latest = sync_rss(rss)
             if latest:
                 rss_update_latest(rss_tracked_dir, rss, latest)
+            # Add last synced timestamp. This together with "updated" file is used to remove series
+            # that haven't updated in a long time (either finished series or axes series)
+            with open(os.path.join(rss_tracked_dir, rss.title, "synced"), "w") as file:
+                file.write(str(time.time()))
             #else:
             #    print("No 'latest' item found for rss (maybe we already have the latest item?) %s" % rss.title)
             #time.sleep(0.5) # Sleep between fetching rss so we don't get banned for spamming
@@ -481,6 +485,10 @@ def sync(rss_config_dir, html_config_dir, download_dir, sync_rate_sec):
             latest = sync_html(html, download_dir, session_id)
             if latest:
                 html_update_latest(html_tracked_dir, html, latest)
+            # Add last synced timestamp. This together with "updated" file is used to remove series
+            # that haven't updated in a long time (either finished series or axes series)
+            with open(os.path.join(html_tracked_dir, html.title, "synced"), "w") as file:
+                file.write(str(time.time()))
             #else:
             #    print("No 'latest' item found for html (maybe we already have the latest item?) %s" % html.title)
             #time.sleep(0.5) # Sleep between fetching html so we don't get banned for spamming

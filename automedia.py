@@ -20,27 +20,33 @@ config_dir = os.path.expanduser("~/.config/automedia")
 rss_config_dir = os.path.join(config_dir, "rss")
 html_config_dir = os.path.join(config_dir, "html")
 
+only_show_finished_notification = True
+
 class TrackedRss:
     title = None
     latest = None
     link = None
+    json_data = None
 
-    def __init__(self, title, latest, link):
+    def __init__(self, title, latest, link, json_data):
         self.title = title
         self.latest = latest
         self.link = link
+        self.json_data = json_data
 
 class TrackedHtml:
     title = None
     latest = None
     link = None
     plugin = None
+    json_data = None
 
-    def __init__(self, title, latest, link, plugin):
+    def __init__(self, title, latest, link, plugin, json_data):
         self.title = title
         self.latest = latest
         self.link = link
         self.plugin = plugin
+        self.json_data = json_data
 
 class TorrentProgress:
     id = None
@@ -64,25 +70,46 @@ def get_file_content_or_none(path):
     try:
         with open(path, "r") as file:
             return file.read()
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         return None
 
-def get_tracked_rss(rss_tracked_dir):
+def get_tracked_rss_by_title(tracked_rss, title):
+    for t in tracked_rss:
+        if t.title == title:
+            return t
+    return None
+
+def get_tracked_rss(rss_tracked_dir, existing_tracked_rss):
     try:
         tracked_rss = []
         for title in os.listdir(rss_tracked_dir):
+            # Check if we already have the data for the title
+            #if get_tracked_rss_by_title(existing_tracked_rss, title):
+            #    continue
+
             in_progress = get_file_content_or_none(os.path.join(rss_tracked_dir, title, "in_progress"))
             if in_progress:
                 print("Skipping in-progress rss %s" % title)
                 continue
             latest = get_file_content_or_none(os.path.join(rss_tracked_dir, title, "latest"))
             link = get_file_content_or_none(os.path.join(rss_tracked_dir, title, "link"))
-            if not link:
-                print("Rss corrupt, link missing for rss %s" % title)
+            json_data = get_file_content_or_none(os.path.join(rss_tracked_dir, title, "data"))
+            if json_data:
+                json_data = json.loads(json_data)
+            else:
+                json_data = {
+                    "link": link,
+                    "updated": str(time.time()),
+                    "downloaded": []
+                }
+                if latest:
+                    json_data["downloaded"].append({ "title": latest })
+            if not link or not json_data:
+                print("Rss corrupt, link or data missing for rss %s" % title)
                 continue
-            tracked_rss.append(TrackedRss(title, latest, link))
+            tracked_rss.append(TrackedRss(title, latest, link, json_data))
         return tracked_rss
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         return []
 
 def rss_update_latest(rss_tracked_dir, rss, latest):
@@ -92,12 +119,22 @@ def rss_update_latest(rss_tracked_dir, rss, latest):
     with open(os.path.join(rss_tracked_dir, rss.title, "updated"), "w") as file:
         file.write(str(time.time()))
 
+    rss.json_data["updated"] = str(time.time())
+    rss.json_data["downloaded"].append({ "title": latest })
+    with open(os.path.join(rss_tracked_dir, rss.title, "data"), "w") as file:
+        json.dump(rss.json_data, file, indent=4)
+
 def html_update_latest(html_tracked_dir, html, latest):
     with open(os.path.join(html_tracked_dir, html.title, "latest"), "w") as file:
         file.write(latest)
 
     with open(os.path.join(html_tracked_dir, html.title, "updated"), "w") as file:
         file.write(str(time.time()))
+
+    html.json_data["updated"] = str(time.time())
+    html.json_data["downloaded"].append({ "title": latest })
+    with open(os.path.join(html_tracked_dir, html.title, "data"), "w") as file:
+        json.dump(html.json_data, file, indent=4)
 
 def get_tracked_html(html_tracked_dir):
     try:
@@ -113,17 +150,29 @@ def get_tracked_html(html_tracked_dir):
                 print("html corrupt, link missing for html %s" % title)
                 continue
             plugin = get_file_content_or_none(os.path.join(html_tracked_dir, title, "plugin"))
-            if not link:
-                print("html corrupt, plugin missing for html %s" % title)
+            json_data = get_file_content_or_none(os.path.join(html_tracked_dir, title, "data"))
+            if json_data:
+                json_data = json.loads(json_data)
+            else:
+                json_data = {
+                    "plugin": plugin,
+                    "link": link,
+                    "updated": str(time.time()),
+                    "downloaded": []
+                }
+                if latest:
+                    json_data["downloaded"].append({ "title": latest })
+            if not plugin or not json_data:
+                print("html corrupt, plugin or data missing for html %s" % title)
                 continue
-            tracked_html.append(TrackedHtml(title, latest, link, plugin))
+            tracked_html.append(TrackedHtml(title, latest, link, plugin, json_data))
         return tracked_html
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         return []
 
 # @urgency should either be "low", "normal" or "critical"
 def show_notification(title, body, urgency="normal"):
-    process = subprocess.Popen(["notify-send", "-u", urgency, title, body])
+    process = subprocess.Popen(["notify-send", "-u", urgency, "--", title, body])
     #process.communicate()
 
 def fetch_page(url):
@@ -131,7 +180,8 @@ def fetch_page(url):
     stdout, stderr = process.communicate()
     if process.returncode != 0:
         # TODO: Add file to list of failed files, so the user knows which they should manually download
-        show_notification("Download failed", "Failed to fetch page: {}, error: {}".format(url, stderr.decode('utf-8')), urgency="critical")
+        if not only_show_finished_notification:
+            show_notification("Download failed", "Failed to fetch page: {}, error: {}".format(url, stderr.decode('utf-8')), urgency="critical")
         return None
     return stdout.decode('utf-8')
 
@@ -152,7 +202,8 @@ def add_torrent(torrent_link):
     process = subprocess.Popen(["transmission-remote", "--add", torrent_link], stderr=subprocess.PIPE)
     _, stderr = process.communicate()
     if process.returncode != 0:
-        show_notification("Download failed", "Failed to download torrent: {}, error: {}".format(torrent_link, stderr.decode('utf-8')), urgency="critical")
+        if not only_show_finished_notification:
+            show_notification("Download failed", "Failed to download torrent: {}, error: {}".format(torrent_link, stderr.decode('utf-8')), urgency="critical")
     return process.returncode == 0
 
 def get_torrent_progress(tc):
@@ -191,7 +242,7 @@ def get_html_items_progress(download_dir, tracked_html):
             for item in os.listdir(item_dir):
                 finished = os.path.isfile(os.path.join(item_dir, item, "finished"))
                 items.append(HtmlItemProgress(html.title + "/" + item, finished))
-        except FileNotFoundError as e:
+        except FileNotFoundError:
             pass
     return items
 
@@ -209,7 +260,7 @@ def update_downloaded_item_list(downloaded_item):
 
 def add_rss(name, url, rss_config_dir, start_after):
     feed = feedparser.parse(url)
-    if 'bozo_exception' in feed:
+    if feed.bozo == 1:
         print("Failed to add rss, error: {}".format(str(feed.bozo_exception)))
         return False
         
@@ -248,6 +299,17 @@ def add_rss(name, url, rss_config_dir, start_after):
 
     with open(os.path.join(rss_dir, "updated"), "w") as file:
         file.write(str(time.time()))
+
+    data = {
+        "link": url,
+        "updated": str(time.time()),
+        "downloaded": []
+    }
+    if start_after:
+        data["downloaded"].append({ "title": start_after })
+
+    with open(os.path.join(rss_dir, "data"), "w") as file:
+        json.dump(data, file, indent=4)
     
     os.remove(in_progress_filepath)
     return True
@@ -304,22 +366,42 @@ def add_html(name, url, html_config_dir, start_after):
 
     with open(os.path.join(html_dir, "updated"), "w") as file:
         file.write(str(time.time()))
+
+    data = {
+        "plugin": os.path.basename(plugin_path),
+        "link": url,
+        "updated": str(time.time()),
+        "downloaded": []
+    }
+    if start_after:
+        data["downloaded"].append({ "title": start_after })
+
+    with open(os.path.join(html_dir, "data"), "w") as file:
+        json.dump(data, file, indent=4)
     
     os.remove(in_progress_filepath)
     return True
 
+def get_downloaded_item_by_title(tracked_rss, title):
+    for item in tracked_rss.json_data["downloaded"]:
+        if item.title == title:
+            return item
+    return None
 
 # Return the title of the newest item
 def sync_rss(tracked_rss):
     feed = feedparser.parse(tracked_rss.link)
-    if 'bozo_exception' in feed:
-        print("{}: Failed to add rss, error: {}".format(str(datetime.today().isoformat()), str(feed.bozo_exception)))
-        show_notification("RSS Sync failed", "Failed to parse rss for url {}, error: {}".format(tracked_rss.link, str(feed.bozo_exception)), urgency="critical")
+    if feed.bozo == 1:
+        print("{}: Failed to sync rss for url {}, error: {}".format(str(datetime.today().isoformat()), tracked_rss.link, str(feed.bozo_exception)))
+        if not only_show_finished_notification:
+            show_notification("RSS Sync failed", "Failed to parse rss for url {}, error: {}".format(tracked_rss.link, str(feed.bozo_exception)), urgency="critical")
         return None
 
     items = []
     for item in feed["items"]:
         title = item["title"].strip()
+        # TODO: Goto next page in rss if supported, if we cant find our item on the first page
+        #if not get_downloaded_item_by_title(tracked_rss, title):
         if tracked_rss.latest and title == tracked_rss.latest:
             break
         items.append(item)
@@ -332,7 +414,8 @@ def sync_rss(tracked_rss):
         if not add_torrent(link):
             return latest
         latest = item["title"].strip()
-        show_notification("Download started", latest)
+        if not only_show_finished_notification:
+            show_notification("Download started", latest)
     return latest
 
 def plugin_list(plugin_path, url, latest):
@@ -343,14 +426,16 @@ def plugin_list(plugin_path, url, latest):
     if process.returncode != 0:
         plugin_name = os.path.basename(plugin_path)
         print("{}: Plugin failed: Failed to launch plugin list for plugin {} and url {}, error: stdout: {}, stderr: {}".format(str(datetime.today().isoformat()), plugin_name, url, stdout.decode('utf-8'), stderr.decode('utf-8')))
-        show_notification("Plugin failed", "Failed to launch plugin list for plugin {} and url {}, error: stdout: {}, stderr: {}".format(plugin_name, url, stdout.decode('utf-8'), stderr.decode('utf-8')), urgency="critical")
+        if not only_show_finished_notification:
+            show_notification("Plugin failed", "Failed to launch plugin list for plugin {} and url {}, error: stdout: {}, stderr: {}".format(plugin_name, url, stdout.decode('utf-8'), stderr.decode('utf-8')), urgency="critical")
         return None
 
     try:
         return json.loads(stdout.decode('utf-8'))
     except json.decoder.JSONDecodeError as e:
         plugin_name = os.path.basename(plugin_path)
-        show_notification("Plugin failed", "Failed to json decode response of plugin {}, error: {}".format(plugin_name, str(e)), urgency="critical")
+        if not only_show_finished_notification:
+            show_notification("Plugin failed", "Failed to json decode response of plugin {}, error: {}".format(plugin_name, str(e)), urgency="critical")
         return None
 
 def plugin_download(plugin_path, url, download_dir):
@@ -384,7 +469,8 @@ def resume_tracked_html(plugin_entry, download_dir, tracked_html, session_id):
             
             if invalid_session:
                 plugin_download(plugin_entry, url, item_dir)
-                show_notification("Resuming", "Resuming download for item {} with plugin {}".format(item, tracked_html.plugin))
+                if not only_show_finished_notification:
+                    show_notification("Resuming", "Resuming download for item {} with plugin {}".format(item, tracked_html.plugin))
                 with open(os.path.join(item_dir, "session_id"), "w") as file:
                     file.write(session_id)
     except FileNotFoundError as e:
@@ -440,7 +526,8 @@ def sync_html(tracked_html, download_dir, session_id):
             return latest
 
         latest = name
-        show_notification("Download started", "{}/{}".format(tracked_html.title, name))
+        if not only_show_finished_notification:
+            show_notification("Download started", "{}/{}".format(tracked_html.title, name))
     return latest
 
 def sync(rss_config_dir, html_config_dir, download_dir, sync_rate_sec):
@@ -464,8 +551,9 @@ def sync(rss_config_dir, html_config_dir, download_dir, sync_rate_sec):
     tc = transmissionrpc.Client("localhost")
     
     running = True
+    tracked_rss = []
     while running:
-        tracked_rss = get_tracked_rss(rss_tracked_dir)
+        tracked_rss = get_tracked_rss(rss_tracked_dir, tracked_rss)
         for rss in tracked_rss:
             print("{}: rss: Syncing {}".format(str(datetime.today().isoformat()), rss.title))
             latest = sync_rss(rss)
@@ -567,7 +655,7 @@ def command_add(args):
             elif option == "--start-after":
                 start_after = arg
             else:
-                print("Invalid option %" % option)
+                print("Invalid option %s" % option)
                 usage_add()
             option = None
 

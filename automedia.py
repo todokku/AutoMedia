@@ -267,6 +267,10 @@ def add_rss(name, url, rss_config_dir, start_after):
     if not name:
         name = feed["channel"]["title"].strip()
 
+    if not name or len(name) == 0:
+        print("Name not provided and name in rss is empty")
+        return False
+
     found_start_after = False
     for item in feed["items"]:
         title = item["title"].strip()
@@ -326,6 +330,10 @@ def add_html(name, url, html_config_dir, start_after):
         plugin_path = domain_plugin_py_path
     else:
         print("Plugin doesn't exist: {}".format(domain))
+        return False
+
+    if not name or len(name) == 0:
+        print("Name not provided or empty")
         return False
  
     if start_after:
@@ -619,8 +627,8 @@ def usage_add():
     print("  --name\t\tThe display name to be used for the media. Optional for rss, in which case the name will be retries from rss TITLE, required for html")
     print("  --start-after\t\tThe sync should start downloading media after this item (Optional, default is to start from the first item)")
     print("EXAMPLES")
-    print("  automedia.py add https://nyaa.si/?page=rss&q=Tejina-senpai+1080p&c=0_0&f=0&u=HorribleSubs")
-    print("  automedia.py add html https://manganelo.com/manga/read_naruto_manga_online_free3 --name Naruto")
+    print("  automedia.py add rss 'https://nyaa.si/?page=rss&q=Tejina-senpai+1080p&c=0_0&f=0&u=HorribleSubs'")
+    print("  automedia.py add html 'https://manganelo.com/manga/read_naruto_manga_online_free3' --name Naruto")
     exit(1)
 
 def usage_sync():

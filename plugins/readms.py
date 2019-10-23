@@ -87,7 +87,15 @@ def download_chapter(url, download_dir):
         if len(next_pages) != 1:
             break
 
-        url = "https://readms.net" + next_pages[0]
+        next_page = next_pages[0]
+        last_slash = next_page.rfind('/')
+        try:
+            if last_slash != -1 and int(next_page[last_slash+1:]) <= img_number:
+                break
+        except ValueError:
+            pass
+
+        url = "https://readms.net" + next_page
         img_number += 1
 
     with open(os.path.join(download_dir, "finished"), "w") as file:

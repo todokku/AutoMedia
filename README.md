@@ -7,6 +7,7 @@ Run automedia without any options to see all options.
 ## TODO
 1. Periodically check and remove in_progress files and their directories. This can happen if the computer crashes while adding rss.
 2. Automatically remove torrents that have finished seeding, to reduce memory usage and startup time of transmission.
+3. Only allow one instance of automedia to run at a time. This is to prevent the config from being corrupt.
 # Requirements
 ## System
 transmission-cli, notify-send (optional)

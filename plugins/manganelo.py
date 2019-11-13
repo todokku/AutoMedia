@@ -88,7 +88,7 @@ if command == "list":
     if len(sys.argv) < 3:
         usage_list()
     
-    url = sys.argv[2]
+    url = sys.argv[2].replace("mangakakalot", "manganelo")
     latest = ""
     if len(sys.argv) >= 4:
         latest = sys.argv[3]
@@ -96,7 +96,7 @@ if command == "list":
 elif command == "download":
     if len(sys.argv) < 4:
         usage_download()
-    url = sys.argv[2]
+    url = sys.argv[2].replace("mangakakalot", "manganelo")
     download_dir = sys.argv[3]
     download_chapter(url, download_dir)
 else:

@@ -97,13 +97,14 @@ def get_tracked_rss(rss_tracked_dir, existing_tracked_rss):
             if json_data:
                 json_data = json.loads(json_data)
             else:
+                updated = str(time.time())
                 json_data = {
                     "link": link,
-                    "updated": str(time.time()),
+                    "updated": updated,
                     "downloaded": []
                 }
                 if latest:
-                    json_data["downloaded"].append({ "title": latest })
+                    json_data["downloaded"].append({ "title": latest, "time": updated })
             if not link or not json_data:
                 print("Rss corrupt, link or data missing for rss %s" % title)
                 continue
@@ -116,11 +117,12 @@ def rss_update_latest(rss_tracked_dir, rss, latest):
     with open(os.path.join(rss_tracked_dir, rss.title, "latest"), "w") as file:
         file.write(latest)
 
+    updated = str(time.time())
     with open(os.path.join(rss_tracked_dir, rss.title, "updated"), "w") as file:
-        file.write(str(time.time()))
+        file.write(updated)
 
-    rss.json_data["updated"] = str(time.time())
-    rss.json_data["downloaded"].append({ "title": latest })
+    rss.json_data["updated"] = updated
+    rss.json_data["downloaded"].append({ "title": latest, "time": updated })
     with open(os.path.join(rss_tracked_dir, rss.title, "data"), "w") as file:
         json.dump(rss.json_data, file, indent=4)
 
@@ -128,11 +130,12 @@ def html_update_latest(html_tracked_dir, html, latest):
     with open(os.path.join(html_tracked_dir, html.title, "latest"), "w") as file:
         file.write(latest)
 
+    updated = str(time.time())
     with open(os.path.join(html_tracked_dir, html.title, "updated"), "w") as file:
-        file.write(str(time.time()))
+        file.write(updated)
 
-    html.json_data["updated"] = str(time.time())
-    html.json_data["downloaded"].append({ "title": latest })
+    html.json_data["updated"] = updated
+    html.json_data["downloaded"].append({ "title": latest, "time": updated })
     with open(os.path.join(html_tracked_dir, html.title, "data"), "w") as file:
         json.dump(html.json_data, file, indent=4)
 
@@ -154,14 +157,15 @@ def get_tracked_html(html_tracked_dir):
             if json_data:
                 json_data = json.loads(json_data)
             else:
+                updated = str(time.time())
                 json_data = {
                     "plugin": plugin,
                     "link": link,
-                    "updated": str(time.time()),
+                    "updated": updated,
                     "downloaded": []
                 }
                 if latest:
-                    json_data["downloaded"].append({ "title": latest })
+                    json_data["downloaded"].append({ "title": latest, "time": updated })
             if not plugin or not json_data:
                 print("html corrupt, plugin or data missing for html %s" % title)
                 continue
@@ -301,16 +305,17 @@ def add_rss(name, url, rss_config_dir, start_after):
         with open(os.path.join(rss_dir, "latest"), "w") as file:
             file.write(start_after)
 
+    updated = str(time.time())
     with open(os.path.join(rss_dir, "updated"), "w") as file:
-        file.write(str(time.time()))
+        file.write(updated)
 
     data = {
         "link": url,
-        "updated": str(time.time()),
+        "updated": updated,
         "downloaded": []
     }
     if start_after:
-        data["downloaded"].append({ "title": start_after })
+        data["downloaded"].append({ "title": start_after, "time": updated })
 
     with open(os.path.join(rss_dir, "data"), "w") as file:
         json.dump(data, file, indent=4)
@@ -372,17 +377,18 @@ def add_html(name, url, html_config_dir, start_after):
         with open(os.path.join(html_dir, "latest"), "w") as file:
             file.write(start_after)
 
+    updated = str(time.time())
     with open(os.path.join(html_dir, "updated"), "w") as file:
-        file.write(str(time.time()))
+        file.write(updated)
 
     data = {
         "plugin": os.path.basename(plugin_path),
         "link": url,
-        "updated": str(time.time()),
+        "updated": updated,
         "downloaded": []
     }
     if start_after:
-        data["downloaded"].append({ "title": start_after })
+        data["downloaded"].append({ "title": start_after, "time": updated })
 
     with open(os.path.join(html_dir, "data"), "w") as file:
         json.dump(data, file, indent=4)
@@ -702,6 +708,38 @@ def command_sync(args):
     sync_rate_sec = 15 * 60 # every 15 min
     sync(rss_config_dir, html_config_dir, download_dir, sync_rate_sec)
 
+def data_file_get_downloaded(data_filepath):
+    downloaded = []
+    try:
+        with open(data_filepath, "r") as file:
+            for item in json.loads(file.read())["downloaded"]:
+                downloaded.append(item)
+    except OSError:
+        pass
+    return downloaded
+
+def get_downloaded_items(tracked_dir):
+    downloaded_items = []
+    try:
+        downloaded_items = []
+        for name in os.listdir(tracked_dir):
+            data_filepath = os.path.join(tracked_dir, name, "data")
+            downloaded = data_file_get_downloaded(data_filepath)
+            for item in downloaded:
+                if item.get("time"):
+                    downloaded_items.append(item)
+    except OSError:
+        pass
+    return downloaded_items
+
+def command_downloaded():
+    downloaded_items = []
+    downloaded_items.extend(get_downloaded_items(os.path.join(rss_config_dir, "tracked")))
+    downloaded_items.extend(get_downloaded_items(os.path.join(html_config_dir, "tracked")))
+    #downloaded_items = sorted(downloaded_items, key=lambda item: float(item["time"]), reverse=True)
+    for item in downloaded_items:
+        print(item["title"])
+
 def main():
     if len(sys.argv) < 2:
         usage()
@@ -711,6 +749,8 @@ def main():
         command_add(sys.argv[2:])
     elif command == "sync":
         command_sync(sys.argv[2:])
+    elif command == "downloaded":
+        command_downloaded()
     else:
         usage()
 

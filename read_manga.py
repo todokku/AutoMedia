@@ -77,5 +77,5 @@ for chapter in chapters_by_oldest[start_index:]:
         images_str.append(os.path.join(image_dir, image))
     index += 1
 
-process = subprocess.Popen(["sxiv", "-i", "-s", "f", "-f"], stdin=subprocess.PIPE)
+process = subprocess.Popen(["sxiv", "-i", "-f"], stdin=subprocess.PIPE)
 process.communicate("\n".join(images_str).encode())

@@ -12,7 +12,7 @@ Run automedia without any options to see all options.
 ## System
 transmission-cli, notify-send (optional)
 ## Python
-feedparser, tldextract, transmissionrpc
+feedparser, transmissionrpc
 # Requirements when using read_manga.py
 ## System
 rofi, sxiv

@@ -7,9 +7,9 @@ import sys
 import time
 import json
 import uuid
-# TODO: Remove this shit. It gives warning and it's slow
-import tldextract
 import transmissionrpc
+
+from domain import url_extract_domain
 
 from lxml import etree
 from datetime import datetime
@@ -319,7 +319,10 @@ def add_rss(name, url, rss_config_dir, start_after):
     return True
 
 def add_html(name, url, html_config_dir, start_after):
-    domain = tldextract.extract(url).domain
+    domain = url_extract_domain(url)
+    if len(domain) == 0:
+        print("Invalid url: {}".format(url))
+        return False
     domain_plugin_path = os.path.join(script_dir, "plugins", domain)
     domain_plugin_py_path = os.path.join(script_dir, "plugins", domain + ".py")
 

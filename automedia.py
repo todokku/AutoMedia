@@ -87,7 +87,7 @@ def get_tracked_rss(rss_tracked_dir, existing_tracked_rss):
             #if get_tracked_rss_by_title(existing_tracked_rss, title):
             #    continue
 
-            in_progress = get_file_content_or_none(os.path.join(rss_tracked_dir, title, "in_progress"))
+            in_progress = get_file_content_or_none(os.path.join(rss_tracked_dir, title, ".in_progress"))
             if in_progress:
                 print("Skipping in-progress rss %s" % title)
                 continue
@@ -143,7 +143,7 @@ def get_tracked_html(html_tracked_dir):
     try:
         tracked_html = []
         for title in os.listdir(html_tracked_dir):
-            in_progress = get_file_content_or_none(os.path.join(html_tracked_dir, title, "in_progress"))
+            in_progress = get_file_content_or_none(os.path.join(html_tracked_dir, title, ".in_progress"))
             if in_progress:
                 print("Skipping in-progress html %s" % title)
                 continue
@@ -176,8 +176,7 @@ def get_tracked_html(html_tracked_dir):
 
 # @urgency should either be "low", "normal" or "critical"
 def show_notification(title, body, urgency="normal"):
-    process = subprocess.Popen(["notify-send", "-u", urgency, "--", title, body])
-    #process.communicate()
+    subprocess.Popen(["notify-send", "-u", urgency, "--", title, body])
 
 def fetch_page(url):
     process = subprocess.Popen(["curl", "-s", "-L", "--output", "-", url], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -244,7 +243,7 @@ def get_html_items_progress(download_dir, tracked_html):
         item_dir = os.path.join(download_dir, html.title)
         try:
             for item in os.listdir(item_dir):
-                finished = os.path.isfile(os.path.join(item_dir, item, "finished"))
+                finished = os.path.isfile(os.path.join(item_dir, item, ".finished"))
                 items.append(HtmlItemProgress(html.title + "/" + item, finished))
         except FileNotFoundError:
             pass
@@ -257,10 +256,6 @@ def get_matching_html_items_by_name(html_items1, html_items2):
             if html_item1.name == html_item2.name:
                 matching_items.append(html_item1.name)
     return matching_items
-
-def update_downloaded_item_list(downloaded_item):
-    with open(os.path.join(config_dir, "downloaded"), "a") as file:
-        file.write("{}\n".format(downloaded_item))
 
 def add_rss(name, url, rss_config_dir, start_after):
     feed = feedparser.parse(url)
@@ -290,11 +285,11 @@ def add_rss(name, url, rss_config_dir, start_after):
     rss_dir = os.path.join(rss_config_dir, "tracked", name)
     os.makedirs(rss_dir)
 
-    # Create an "in_progress" file to prevent periodic sync from reading rss data
+    # Create an ".in_progress" file to prevent periodic sync from reading rss data
     # before we have finished adding all the data.
     # Timestamp is added to it to make it possible to automatically cleanup rss that is corrupted
     # (for example if the computer crashes before the in_progress file is removed).
-    in_progress_filepath = os.path.join(rss_dir, "in_progress")
+    in_progress_filepath = os.path.join(rss_dir, ".in_progress")
     with open(in_progress_filepath, "w") as file:
         file.write(str(time.time()))
 
@@ -359,11 +354,11 @@ def add_html(name, url, html_config_dir, start_after):
     html_dir = os.path.join(html_config_dir, "tracked", name)
     os.makedirs(html_dir)
 
-    # Create an "in_progress" file to prevent periodic sync from reading rss data
+    # Create an ".in_progress" file to prevent periodic sync from reading rss data
     # before we have finished adding all the data.
     # Timestamp is added to it to make it possible to automatically cleanup rss that is corrupted
     # (for example if the computer crashes before the in_progress file is removed).
-    in_progress_filepath = os.path.join(html_dir, "in_progress")
+    in_progress_filepath = os.path.join(html_dir, ".in_progress")
     with open(in_progress_filepath, "w") as file:
         file.write(str(int(time.time())))
 
@@ -463,10 +458,10 @@ def resume_tracked_html(plugin_entry, download_dir, tracked_html, session_id):
     try:
         for item in os.listdir(title_dir):
             item_dir = os.path.join(title_dir, item)
-            if os.path.isfile(os.path.join(item_dir, "finished")):
+            if os.path.isfile(os.path.join(item_dir, ".finished")):
                 continue
             
-            in_progress_path = os.path.join(item_dir, "in_progress")
+            in_progress_path = os.path.join(item_dir, ".in_progress")
             url = get_file_content_or_none(in_progress_path)
             # Item has finished downloading
             if not url:
@@ -474,7 +469,7 @@ def resume_tracked_html(plugin_entry, download_dir, tracked_html, session_id):
 
             invalid_session = False
             try:
-                with open(os.path.join(item_dir, "session_id"), "r") as file:
+                with open(os.path.join(item_dir, ".session_id"), "r") as file:
                     item_session_id = file.read()
                     if item_session_id != session_id:
                         invalid_session = True
@@ -485,7 +480,7 @@ def resume_tracked_html(plugin_entry, download_dir, tracked_html, session_id):
                 plugin_download(plugin_entry, url, item_dir)
                 if not only_show_finished_notification:
                     show_notification("Resuming", "Resuming download for item {} with plugin {}".format(item, tracked_html.plugin))
-                with open(os.path.join(item_dir, "session_id"), "w") as file:
+                with open(os.path.join(item_dir, ".session_id"), "w") as file:
                     file.write(session_id)
     except FileNotFoundError as e:
         pass
@@ -522,9 +517,9 @@ def sync_html(tracked_html, download_dir, session_id):
         return None
 
     # Start downloading asynchronously using url.
-    # A file called "in_progress" should be added to the download directory when the download is in progress.
-    # The "in_progress" file should contain the url that was used to download the item.
-    # A file called "finished" should be added to the download directory when the download has finished.
+    # A file called ".in_progress" should be added to the download directory when the download is in progress.
+    # The ".in_progress" file should contain the url that was used to download the item.
+    # A file called ".finished" should be added to the download directory when the download has finished.
     # ./program download url download_dir
     latest = None
     for item in reversed(items["items"]):
@@ -533,7 +528,7 @@ def sync_html(tracked_html, download_dir, session_id):
         item_dir = os.path.join(download_dir, tracked_html.title, name)
         os.makedirs(item_dir, exist_ok=True)
 
-        with open(os.path.join(item_dir, "session_id"), "w") as file:
+        with open(os.path.join(item_dir, ".session_id"), "w") as file:
             file.write(session_id)
 
         if not plugin_download(plugin_entry, url, item_dir):
@@ -562,7 +557,7 @@ def sync(rss_config_dir, html_config_dir, download_dir, sync_rate_sec):
     # TODO: Remove this and keep a list of "in progress" html items in memory instead.
     session_id = uuid.uuid4().hex
 
-    tc = transmissionrpc.Client("localhost")
+    tc = transmissionrpc.Client("127.0.0.1")
     
     running = True
     tracked_rss = []
@@ -603,7 +598,6 @@ def sync(rss_config_dir, html_config_dir, download_dir, sync_rate_sec):
             newly_finished_html_items = get_matching_html_items_by_name(finished_html_items, unfinished_html_items)
             for newly_finished_html_item in newly_finished_html_items:
                 show_notification("Download finished", newly_finished_html_item)
-                update_downloaded_item_list(newly_finished_html_item)
             unfinished_html_items = [html_item for html_item in html_items if not html_item.finished]
 
             torrents = get_torrent_progress(tc)
@@ -611,7 +605,6 @@ def sync(rss_config_dir, html_config_dir, download_dir, sync_rate_sec):
             newly_finished_torrents = get_matching_torrents_by_name(finished_torrents, unfinished_torrents)
             for newly_finished_torrent in newly_finished_torrents:
                 show_notification("Download finished", newly_finished_torrent)
-                update_downloaded_item_list(newly_finished_torrent)
             unfinished_torrents = get_unfinished_torrents(torrents)
 
             time.sleep(check_torrent_status_rate_sec)

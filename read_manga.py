@@ -68,7 +68,7 @@ for chapter in chapters_by_oldest[start_index:]:
     images = []
     image_dir = os.path.join(manga_directory, chapter)
     for image in os.listdir(image_dir):
-        # Ignore "in_progress", "finished" and "session_id". We only want image files.
+        # Ignore ".in_progress", ".finished" and ".session_id". We only want image files.
         if image.find(".") != -1:
             images.append(image)
     

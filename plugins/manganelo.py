@@ -63,7 +63,7 @@ def download_chapter(url, download_dir):
         print("Failed to list chapters, server responded with status code %d" % response.status_code)
         exit(2)
 
-    in_progress_filepath = os.path.join(download_dir, "in_progress")
+    in_progress_filepath = os.path.join(download_dir, ".in_progress")
     with open(in_progress_filepath, "w") as file:
         file.write(url)
 
@@ -78,7 +78,7 @@ def download_chapter(url, download_dir):
             exit(1)
         img_number += 1
 
-    with open(os.path.join(download_dir, "finished"), "w") as file:
+    with open(os.path.join(download_dir, ".finished"), "w") as file:
         file.write("1")
 
     os.remove(in_progress_filepath)

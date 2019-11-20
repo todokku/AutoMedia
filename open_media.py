@@ -73,7 +73,7 @@ def main():
         add_seen(seen_filepath, selected_media, seen_list)
         files = []
         for filename in os.listdir(media_path):
-            if filename not in ("finished", "session_id"):
+            if filename not in (".finished", ".session_id"):
                 files.append(filename)
 
         files = sorted(files, key=sort_images)

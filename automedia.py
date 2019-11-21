@@ -732,7 +732,7 @@ def command_downloaded():
     downloaded_items = []
     downloaded_items.extend(get_downloaded_items(os.path.join(rss_config_dir, "tracked")))
     downloaded_items.extend(get_downloaded_items(os.path.join(html_config_dir, "tracked")))
-    #downloaded_items = sorted(downloaded_items, key=lambda item: float(item["time"]), reverse=True)
+    downloaded_items = sorted(downloaded_items, key=lambda item: float(item["time"]))
     for item in downloaded_items:
         print(item["title"])
 

@@ -712,7 +712,7 @@ def data_file_get_downloaded(data_filepath):
         pass
     return downloaded
 
-def get_downloaded_items(tracked_dir):
+def get_downloaded_items(tracked_dir, is_html):
     downloaded_items = []
     try:
         downloaded_items = []
@@ -721,6 +721,8 @@ def get_downloaded_items(tracked_dir):
             downloaded = data_file_get_downloaded(data_filepath)
             for item in downloaded:
                 if item.get("time"):
+                    if is_html:
+                        item["title"] = os.path.join(name, item["title"])
                     downloaded_items.append(item)
     except OSError:
         pass
@@ -728,8 +730,8 @@ def get_downloaded_items(tracked_dir):
 
 def command_downloaded():
     downloaded_items = []
-    downloaded_items.extend(get_downloaded_items(os.path.join(rss_config_dir, "tracked")))
-    downloaded_items.extend(get_downloaded_items(os.path.join(html_config_dir, "tracked")))
+    downloaded_items.extend(get_downloaded_items(os.path.join(rss_config_dir, "tracked"), False))
+    downloaded_items.extend(get_downloaded_items(os.path.join(html_config_dir, "tracked"), True))
     downloaded_items = sorted(downloaded_items, key=lambda item: float(item["time"]))
     for item in downloaded_items:
         print(item["title"])

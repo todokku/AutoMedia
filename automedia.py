@@ -343,7 +343,7 @@ def add_html(name, url, html_config_dir, start_after):
         items = plugin_list(plugin_path, url, None)
         if items:
             found_start_after = False
-            for item in reversed(items["items"]):
+            for item in reversed(items):
                 title = item["name"].strip()
                 if start_after and title == start_after:
                     found_start_after = True
@@ -500,9 +500,8 @@ def sync_html(tracked_html, download_dir, session_id):
 
     # Program should print the names of each item (chapter for manga) after "latest", sorted by newest to oldest
     # along with the urls to them.
-    # Only get the items before the one called @latest. The printed data should be in json format:
-    # {
-    #   "items": [
+    # Only get the items before the one called @latest. The printed data should be in this json format:
+    #   [
     #     {
     #       "name": "Example name",
     #       "url": "https://example.com"
@@ -512,7 +511,6 @@ def sync_html(tracked_html, download_dir, session_id):
     #       "url": "https://another.url.com"
     #     }
     #   ]
-    # }
     # ./program list url latest
     # Note: @latest argument here is optional
     items = plugin_list(plugin_entry, tracked_html.link, tracked_html.latest)
@@ -525,7 +523,7 @@ def sync_html(tracked_html, download_dir, session_id):
     # A file called ".finished" should be added to the download directory when the download has finished.
     # ./program download url download_dir
     latest = None
-    for item in reversed(items["items"]):
+    for item in reversed(items):
         url = item["url"]
         name = item["name"].replace("/", "_")
         item_dir = os.path.join(download_dir, tracked_html.title, name)

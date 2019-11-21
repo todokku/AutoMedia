@@ -55,7 +55,7 @@ def list_chapters(url, latest):
         if latest and element_text == latest:
             break
         chapters.append({ "name": element_text, "url": "https://readms.net" + element.attrib.get("href").strip() })
-    print(json.dumps({ "items": chapters }))
+    print(json.dumps(chapters))
 
 def download_chapter(url, download_dir):
     in_progress_filepath = os.path.join(download_dir, ".in_progress")

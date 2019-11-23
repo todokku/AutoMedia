@@ -48,6 +48,7 @@ def main():
         exit(2)
 
     downloaded_list = get_downloaded_list()
+    downloaded_list = [item for item in downloaded_list if os.path.exists(os.path.join(download_dir, item))]
     
     seen_filepath = os.path.expanduser("~/.config/automedia/seen")
     seen_list = []
@@ -57,7 +58,6 @@ def main():
     except OSError as e:
         print("Failed to open {}, reason: {}".format(seen_filepath, str(e)))
 
-    print("seen_list: {}".format(str(seen_list)))
     for seen in seen_list:
         for i, downloaded in enumerate(downloaded_list):
             if seen == downloaded:

@@ -264,7 +264,7 @@ def add_rss(name, url, rss_config_dir, start_after):
         return False
         
     if not name:
-        name = feed["channel"]["title"].strip()
+        name = feed["channel"]["title"].replace("/", "_").strip()
 
     if not name or len(name) == 0:
         print("Name not provided and name in rss is empty")
@@ -272,7 +272,7 @@ def add_rss(name, url, rss_config_dir, start_after):
 
     found_start_after = False
     for item in feed["items"]:
-        title = item["title"].strip()
+        title = item["title"].replace("/", "_").strip()
         if start_after and title == start_after:
             found_start_after = True
             break
@@ -344,7 +344,7 @@ def add_html(name, url, html_config_dir, start_after):
         if items:
             found_start_after = False
             for item in reversed(items):
-                title = item["name"].strip()
+                title = item["name"].replace("/", "_").strip()
                 if start_after and title == start_after:
                     found_start_after = True
                     break
@@ -402,6 +402,7 @@ def get_downloaded_item_by_title(tracked_rss, title):
 
 # Return the title of the newest item
 def sync_rss(tracked_rss):
+    rss_tracked_dir = os.path.join(rss_config_dir, "tracked")
     feed = feedparser.parse(tracked_rss.link)
     if feed.bozo == 1:
         print("{}: Failed to sync rss for url {}, error: {}".format(str(datetime.today().isoformat()), tracked_rss.link, str(feed.bozo_exception)))
@@ -411,7 +412,7 @@ def sync_rss(tracked_rss):
 
     items = []
     for item in feed["items"]:
-        title = item["title"].strip()
+        title = item["title"].replace("/", "_").strip()
         # TODO: Goto next page in rss if supported, if we cant find our item on the first page
         #if not get_downloaded_item_by_title(tracked_rss, title):
         if tracked_rss.latest and title == tracked_rss.latest:
@@ -422,10 +423,13 @@ def sync_rss(tracked_rss):
     # If it fails, there will be an attempt to add them again after next sync cycle.
     latest = None
     for item in reversed(items):
+        title = item["title"].replace("/", "_").strip()
+        rss_update_latest(rss_tracked_dir, tracked_rss, title)
+
         link = item["link"]
         if not add_torrent(link):
             return latest
-        latest = item["title"].strip()
+        latest = title
         if not only_show_finished_notification:
             show_notification("Download started", latest)
     return latest
@@ -451,8 +455,9 @@ def plugin_list(plugin_path, url, latest):
         return None
 
 def plugin_download(plugin_path, url, download_dir):
-    subprocess.Popen([plugin_path, "download", url, download_dir], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    return True
+    process = subprocess.Popen([plugin_path, "download", url, download_dir], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    process.communicate()
+    return process.returncode == 0
 
 def resume_tracked_html(plugin_entry, download_dir, tracked_html, session_id):
     # TODO: Instead of redownloading, add resuming. This could be done by adding the files that have been downloaded to a file.
@@ -480,11 +485,12 @@ def resume_tracked_html(plugin_entry, download_dir, tracked_html, session_id):
                 invalid_session = True
             
             if invalid_session:
-                plugin_download(plugin_entry, url, item_dir)
                 if not only_show_finished_notification:
                     show_notification("Resuming", "Resuming download for item {} with plugin {}".format(item, tracked_html.plugin))
                 with open(os.path.join(item_dir, ".session_id"), "w") as file:
                     file.write(session_id)
+                plugin_download(plugin_entry, url, item_dir)
+
     except FileNotFoundError as e:
         pass
 
@@ -492,6 +498,7 @@ def resume_tracked_html(plugin_entry, download_dir, tracked_html, session_id):
 def sync_html(tracked_html, download_dir, session_id):
     plugin_entry = os.path.join(script_dir, "plugins", tracked_html.plugin)
     resume_tracked_html(plugin_entry, download_dir, tracked_html, session_id)
+    html_tracked_dir = os.path.join(html_config_dir, "tracked")
 
     # TODO: Instead of using item name to track which ones to download newer item than,
     # use a number which should be the number of items that have already been downloaded.
@@ -525,12 +532,14 @@ def sync_html(tracked_html, download_dir, session_id):
     latest = None
     for item in reversed(items):
         url = item["url"]
-        name = item["name"].replace("/", "_")
+        name = item["name"].replace("/", "_").strip()
         item_dir = os.path.join(download_dir, tracked_html.title, name)
         os.makedirs(item_dir, exist_ok=True)
 
         with open(os.path.join(item_dir, ".session_id"), "w") as file:
             file.write(session_id)
+
+        html_update_latest(html_tracked_dir, tracked_html, name)
 
         if not plugin_download(plugin_entry, url, item_dir):
             return latest
@@ -566,9 +575,7 @@ def sync(rss_config_dir, html_config_dir, download_dir, sync_rate_sec):
         tracked_rss = get_tracked_rss(rss_tracked_dir, tracked_rss)
         for rss in tracked_rss:
             print("{}: rss: Syncing {}".format(str(datetime.today().isoformat()), rss.title))
-            latest = sync_rss(rss)
-            if latest:
-                rss_update_latest(rss_tracked_dir, rss, latest)
+            sync_rss(rss)
             # Add last synced timestamp. This together with "updated" file is used to remove series
             # that haven't updated in a long time (either finished series or axes series)
             with open(os.path.join(rss_tracked_dir, rss.title, "synced"), "w") as file:
@@ -580,9 +587,7 @@ def sync(rss_config_dir, html_config_dir, download_dir, sync_rate_sec):
         tracked_html = get_tracked_html(html_tracked_dir)
         for html in tracked_html:
             print("{}: html({}): Syncing {}".format(str(datetime.today().isoformat()), html.plugin, html.title))
-            latest = sync_html(html, download_dir, session_id)
-            if latest:
-                html_update_latest(html_tracked_dir, html, latest)
+            sync_html(html, download_dir, session_id)
             # Add last synced timestamp. This together with "updated" file is used to remove series
             # that haven't updated in a long time (either finished series or axes series)
             with open(os.path.join(html_tracked_dir, html.title, "synced"), "w") as file:
@@ -668,7 +673,7 @@ def command_add(args):
             option = None
 
     if start_after:
-        start_after = start_after.strip()
+        start_after = start_after.replace("/", "_").strip()
 
     if media_type == "rss":
         os.makedirs(rss_config_dir, exist_ok=True)

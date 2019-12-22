@@ -50,7 +50,7 @@ def list_chapters(url, latest):
 
     tree = etree.HTML(response.text)
     chapters = []
-    for element in tree.xpath('//div[@class="chapter-list"]//a'):
+    for element in tree.xpath('//ul[@class="row-content-chapter"]//a'):
         element_text = element.text.strip()
         if latest and element_text == latest:
             break
@@ -69,7 +69,7 @@ def download_chapter(url, download_dir):
 
     tree = etree.HTML(response.text)
     img_number = 1
-    for image_source in tree.xpath('//div[@id="vungdoc"]/img/@src'):
+    for image_source in tree.xpath('//div[@class="container-chapter-reader"]/img/@src'):
         ext = image_source[image_source.rfind("."):]
         image_name = str(img_number) + ext
         image_path = os.path.join(download_dir, image_name)

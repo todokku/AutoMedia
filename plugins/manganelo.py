@@ -17,16 +17,13 @@ def usage():
     exit(1)
 
 def usage_list():
-    print("manganelo.py list <url> [latest]")
-    print("examples:")
-    print("  manganelo.py list \"https://mangakakalot.com/manga/assassins_pride\"")
-    print("  manganelo.py list \"https://mangakakalot.com/manga/assassins_pride\" \"Chapter 13\"")
+    print("manganelo.py list <url>")
     exit(1)
 
 def usage_download():
     print("manganelo.py download <url> <download_dir>")
     print("examples:")
-    print("  manganelo.py download \"https://mangakakalot.com/chapter/vy918232/chapter_16\" /home/adam/Manga/MangaName")
+    print("  manganelo.py download \"https://manganelo.com/chapter/read_naruto_manga_online_free3/chapter_700.5\" /home/adam/Manga/MangaName")
     print("")
     print("Note: The manga directory has to exist.")
     exit(1)
@@ -42,19 +39,32 @@ def download_file(url, save_path):
         return False
     return True
 
-def list_chapters(url, latest):
+def list_chapters(url, chapter_list_input):
     response = requests.get(url)
     if response.status_code != 200:
         print("Failed to list chapters, server responded with status code %d" % response.status_code)
         exit(2)
 
+    seen_titles = set()
+    for item in chapter_list_input:
+        title = item.get("title")
+        if title and len(title) > 0:
+            seen_titles.add(title.lower().replace(" ", ""))
+
+    seen_urls = set()
+    for item in chapter_list_input:
+        url = item.get("url")
+        if url and len(url) > 0:
+            seen_urls.add(url.replace("mangakakalot", "manganelo"))
+
     tree = etree.HTML(response.text)
     chapters = []
     for element in tree.xpath('//ul[@class="row-content-chapter"]//a'):
         element_text = element.text.strip()
-        if latest and element_text == latest:
+        url = element.attrib.get("href").strip()
+        if element_text.lower().replace(" ", "") in seen_titles or url in seen_urls:
             break
-        chapters.append({ "name": element_text, "url": element.attrib.get("href").strip() })
+        chapters.append({ "name": element_text, "url": url })
     print(json.dumps(chapters))
 
 def download_chapter(url, download_dir):
@@ -89,10 +99,12 @@ if command == "list":
         usage_list()
     
     url = sys.argv[2].replace("mangakakalot", "manganelo")
-    latest = ""
-    if len(sys.argv) >= 4:
-        latest = sys.argv[3]
-    list_chapters(url, latest)
+    chapter_list_input = sys.stdin.read()
+    if len(chapter_list_input) == 0:
+        chapter_list_input = []
+    else:
+        chapter_list_input = json.loads(chapter_list_input)
+    list_chapters(url, chapter_list_input)
 elif command == "download":
     if len(sys.argv) < 4:
         usage_download()

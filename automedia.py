@@ -113,7 +113,7 @@ def get_tracked_rss(rss_tracked_dir, existing_tracked_rss):
     except FileNotFoundError:
         return []
 
-def rss_update_latest(rss_tracked_dir, rss, latest):
+def rss_update_latest(rss_tracked_dir, rss, latest, url):
     with open(os.path.join(rss_tracked_dir, rss.title, "latest"), "w") as file:
         file.write(latest)
 
@@ -122,11 +122,11 @@ def rss_update_latest(rss_tracked_dir, rss, latest):
         file.write(updated)
 
     rss.json_data["updated"] = updated
-    rss.json_data["downloaded"].append({ "title": latest, "time": updated })
+    rss.json_data["downloaded"].append({ "title": latest, "time": updated, "url": url })
     with open(os.path.join(rss_tracked_dir, rss.title, "data"), "w") as file:
         json.dump(rss.json_data, file, indent=4)
 
-def html_update_latest(html_tracked_dir, html, latest):
+def html_update_latest(html_tracked_dir, html, latest, url):
     with open(os.path.join(html_tracked_dir, html.title, "latest"), "w") as file:
         file.write(latest)
 
@@ -135,7 +135,7 @@ def html_update_latest(html_tracked_dir, html, latest):
         file.write(updated)
 
     html.json_data["updated"] = updated
-    html.json_data["downloaded"].append({ "title": latest, "time": updated })
+    html.json_data["downloaded"].append({ "title": latest, "time": updated, "url": url })
     with open(os.path.join(html_tracked_dir, html.title, "data"), "w") as file:
         json.dump(html.json_data, file, indent=4)
 
@@ -270,11 +270,13 @@ def add_rss(name, url, rss_config_dir, start_after):
         print("Name not provided and name in rss is empty")
         return False
 
+    start_after_url = None
     found_start_after = False
     for item in feed["items"]:
         title = item["title"].replace("/", "_").strip()
         if start_after and title == start_after:
             found_start_after = True
+            start_after_url = item["link"]
             break
     
     if start_after and not found_start_after:
@@ -310,7 +312,7 @@ def add_rss(name, url, rss_config_dir, start_after):
         "downloaded": []
     }
     if start_after:
-        data["downloaded"].append({ "title": start_after, "time": updated })
+        data["downloaded"].append({ "title": start_after, "time": updated, "url": start_after_url })
 
     with open(os.path.join(rss_dir, "data"), "w") as file:
         json.dump(data, file, indent=4)
@@ -339,6 +341,7 @@ def add_html(name, url, html_config_dir, start_after):
         print("Name not provided or empty")
         return False
  
+    start_after_url = None
     if start_after:
         items = plugin_list(plugin_path, url, None)
         if items:
@@ -347,6 +350,7 @@ def add_html(name, url, html_config_dir, start_after):
                 title = item["name"].replace("/", "_").strip()
                 if start_after and title == start_after:
                     found_start_after = True
+                    start_after_url = item["url"]
                     break
             
             if not found_start_after:
@@ -386,7 +390,7 @@ def add_html(name, url, html_config_dir, start_after):
         "downloaded": []
     }
     if start_after:
-        data["downloaded"].append({ "title": start_after, "time": updated })
+        data["downloaded"].append({ "title": start_after, "time": updated, "url": start_after_url })
 
     with open(os.path.join(html_dir, "data"), "w") as file:
         json.dump(data, file, indent=4)
@@ -410,12 +414,19 @@ def sync_rss(tracked_rss):
             show_notification("RSS Sync failed", "Failed to parse rss for url {}, error: {}".format(tracked_rss.link, str(feed.bozo_exception)), urgency="critical")
         return None
 
+    seen_titles = set()
+    seen_urls = set()
+    for downloaded_item in tracked_rss.json_data["downloaded"]:
+        seen_titles.add(downloaded_item["title"].lower().replace(" ", ""))
+        seen_urls.add(downloaded_item.get("url", ""))
+
     items = []
     for item in feed["items"]:
         title = item["title"].replace("/", "_").strip()
+        link = item["link"]
         # TODO: Goto next page in rss if supported, if we cant find our item on the first page
         #if not get_downloaded_item_by_title(tracked_rss, title):
-        if tracked_rss.latest and title == tracked_rss.latest:
+        if title.lower().replace(" ", "") in seen_titles or link in seen_urls:
             break
         items.append(item)
 
@@ -424,9 +435,9 @@ def sync_rss(tracked_rss):
     latest = None
     for item in reversed(items):
         title = item["title"].replace("/", "_").strip()
-        rss_update_latest(rss_tracked_dir, tracked_rss, title)
-
         link = item["link"]
+        rss_update_latest(rss_tracked_dir, tracked_rss, title, link)
+
         if not add_torrent(link):
             return latest
         latest = title
@@ -436,11 +447,18 @@ def sync_rss(tracked_rss):
 
 def plugin_list(plugin_path, url, latest):
     if not latest:
-        latest = ""
-    process = subprocess.Popen([plugin_path, "list", url, latest], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = process.communicate()
+        latest = []
+
+    plugin_name = os.path.basename(plugin_path)
+    process = None
+    try:
+        process = subprocess.Popen([plugin_path, "list", url], stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
+    except FileNotFoundError as e:
+        print("{}: Plugin failed: Failed to launch plugin list for plugin {}, error: {}".format(str(datetime.today().isoformat()), plugin_name, str(e)))
+        return None
+
+    stdout, stderr = process.communicate(json.dumps(latest).encode())
     if process.returncode != 0:
-        plugin_name = os.path.basename(plugin_path)
         print("{}: Plugin failed: Failed to launch plugin list for plugin {} and url {}, error: stdout: {}, stderr: {}".format(str(datetime.today().isoformat()), plugin_name, url, stdout.decode('utf-8'), stderr.decode('utf-8')))
         if not only_show_finished_notification:
             show_notification("Plugin failed", "Failed to launch plugin list for plugin {} and url {}, error: stdout: {}, stderr: {}".format(plugin_name, url, stdout.decode('utf-8'), stderr.decode('utf-8')), urgency="critical")
@@ -449,7 +467,6 @@ def plugin_list(plugin_path, url, latest):
     try:
         return json.loads(stdout.decode('utf-8'))
     except json.decoder.JSONDecodeError as e:
-        plugin_name = os.path.basename(plugin_path)
         if not only_show_finished_notification:
             show_notification("Plugin failed", "Failed to json decode response of plugin {}, error: {}".format(plugin_name, str(e)), urgency="critical")
         return None
@@ -494,16 +511,19 @@ def resume_tracked_html(plugin_entry, download_dir, tracked_html, session_id):
     except FileNotFoundError as e:
         pass
 
+def build_plugin_list_input(tracked_html):
+    result = []
+    for downloaded_item in tracked_html.json_data["downloaded"]:
+        result.append({ "title": downloaded_item["title"], "url": downloaded_item.get("url", "") })
+    return result
+
 # Return the title of the newest item
 def sync_html(tracked_html, download_dir, session_id):
     plugin_entry = os.path.join(script_dir, "plugins", tracked_html.plugin)
     resume_tracked_html(plugin_entry, download_dir, tracked_html, session_id)
     html_tracked_dir = os.path.join(html_config_dir, "tracked")
 
-    # TODO: Instead of using item name to track which ones to download newer item than,
-    # use a number which should be the number of items that have already been downloaded.
-    # The reason being that some sites may rename items that we are tracking, for example
-    # when tracking chapter names and the chapter doesn't have a name yet.
+    # The program takes and index starting from 1, which is the chapter number
 
     # Program should print the names of each item (chapter for manga) after "latest", sorted by newest to oldest
     # along with the urls to them.
@@ -520,7 +540,7 @@ def sync_html(tracked_html, download_dir, session_id):
     #   ]
     # ./program list url latest
     # Note: @latest argument here is optional
-    items = plugin_list(plugin_entry, tracked_html.link, tracked_html.latest)
+    items = plugin_list(plugin_entry, tracked_html.link, build_plugin_list_input(tracked_html))
     if not items:
         return None
 
@@ -539,7 +559,7 @@ def sync_html(tracked_html, download_dir, session_id):
         with open(os.path.join(item_dir, ".session_id"), "w") as file:
             file.write(session_id)
 
-        html_update_latest(html_tracked_dir, tracked_html, name)
+        html_update_latest(html_tracked_dir, tracked_html, name, url)
 
         if not plugin_download(plugin_entry, url, item_dir):
             return latest

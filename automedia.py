@@ -7,6 +7,8 @@ import sys
 import time
 import json
 import uuid
+import errno
+import signal
 import transmissionrpc
 
 from domain import url_extract_domain
@@ -19,6 +21,7 @@ script_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
 config_dir = os.path.expanduser("~/.config/automedia")
 rss_config_dir = os.path.join(config_dir, "rss")
 html_config_dir = os.path.join(config_dir, "html")
+automedia_pid_path = "/tmp/automedia.pid"
 
 only_show_finished_notification = True
 
@@ -720,6 +723,31 @@ def command_sync(args):
     download_dir = args[0]
     if not download_dir:
         usage_sync()
+
+    pid_file = None
+    while True:
+        try:
+            pid_file = os.open(automedia_pid_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            break
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+
+            running_automedia_pid = get_file_content_or_none(automedia_pid_path)
+            if running_automedia_pid:
+                cmdline = get_file_content_or_none("/proc/%s/cmdline" % running_automedia_pid)
+                if cmdline and "automedia.py" in cmdline and "sync" in cmdline:
+                    print("AutoMedia is already running with sync")
+                    exit(0)
+            os.remove(automedia_pid_path)
+
+    def signal_handler(signum, frame):
+        os.unlink(automedia_pid_path)
+        exit(1)
+    signal.signal(signal.SIGINT, signal_handler)
+
+    os.write(pid_file, ("%s" % os.getpid()).encode())
+    os.close(pid_file)
 
     os.makedirs(rss_config_dir, exist_ok=True)
     os.makedirs(html_config_dir, exist_ok=True)

@@ -505,8 +505,8 @@ def resume_tracked_html(plugin_entry, download_dir, tracked_html, session_id):
                 invalid_session = True
             
             if invalid_session:
-                if not only_show_finished_notification:
-                    show_notification("Resuming", "Resuming download for item {} with plugin {}".format(item, tracked_html.plugin))
+                #if not only_show_finished_notification:
+                show_notification("Resuming", "Resuming download for item {} with plugin {}".format(os.path.join(tracked_html.title, item), tracked_html.plugin))
                 with open(os.path.join(item_dir, ".session_id"), "w") as file:
                     file.write(session_id)
                 plugin_download(plugin_entry, url, item_dir)

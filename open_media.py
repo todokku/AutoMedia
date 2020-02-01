@@ -48,7 +48,12 @@ def main():
         exit(2)
 
     downloaded_list = get_downloaded_list()
-    downloaded_list = [item for item in downloaded_list if os.path.exists(os.path.join(download_dir, item))]
+    filtered_downloaded_list = []
+    for item in downloaded_list:
+        media_path = os.path.join(download_dir, item)
+        if os.path.exists(media_path) and not os.path.exists(os.path.join(media_path, ".in_progress")):
+            filtered_downloaded_list.append(item)
+    downloaded_list = filtered_downloaded_list
     
     seen_filepath = os.path.expanduser("~/.config/automedia/seen")
     seen_list = []

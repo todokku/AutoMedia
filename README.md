@@ -9,9 +9,9 @@ Run automedia without any options to see all options.
 2. Automatically remove torrents that have finished seeding, to reduce memory usage and startup time of transmission.
 # Requirements
 ## System
-transmission-cli, notify-send (optional)
+wget, transmission-cli, notify-send (optional)
 ## Python
-feedparser, transmissionrpc
+feedparser, transmissionrpc, lxml
 # Requirements when using read_manga.py
 ## System
 rofi, sxiv
